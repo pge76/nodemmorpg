@@ -1,11 +1,14 @@
+"use strict";
+
 import * as THREE from 'three';
 
 import {OrbitControls} from "orbitcontrols";
+import {GLTFLoader} from "gltfloader";
+import {FBXLoader} from "fbxloader";
 
 class NodeMmoRpg {
     dimX = 20;
     dimY = 20;
-
 
     constructor() {
         this.init();
@@ -19,6 +22,9 @@ class NodeMmoRpg {
         this.initScene();
         this.initLights();
         this.initSkybox();
+
+        //this.loadModels();
+        this.loadAnimatedModels();
 
         window.addEventListener("resize", () => this.onResize(), false);
 
@@ -60,30 +66,30 @@ class NodeMmoRpg {
     }
 
     initScene() {
-        this.scene = new THREE.Scene();
+        this._scene = new THREE.Scene();
 
     }
 
     initLights() {
-        let light = new THREE.DirectionalLight(0xFFFFFF, 1.0);
-        light.position.set(20, 100, 10);
-        light.target.position.set(0, 0, 0);
-        light.castShadow = true;
-        light.shadow.bias = -0.001;
-        light.shadow.mapSize.width = 2048;
-        light.shadow.mapSize.height = 2048;
-        light.shadow.camera.near = 0.1;
-        light.shadow.camera.far = 500.0;
-        light.shadow.camera.near = 0.5;
-        light.shadow.camera.far = 500.0;
-        light.shadow.camera.left = 100;
-        light.shadow.camera.right = -100;
-        light.shadow.camera.top = 100;
-        light.shadow.camera.bottom = -100;
-        this.scene.add(light);
+        let directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.0);
+        directionalLight.position.set(20, 100, 10);
+        directionalLight.target.position.set(0, 0, 0);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.bias = -0.001;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.1;
+        directionalLight.shadow.camera.far = 500.0;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 500.0;
+        directionalLight.shadow.camera.left = 100;
+        directionalLight.shadow.camera.right = -100;
+        directionalLight.shadow.camera.top = 100;
+        directionalLight.shadow.camera.bottom = -100;
+        this._scene.add(directionalLight);
 
-        light = new THREE.AmbientLight(0xFFFFFF, 4.0);
-        this.scene.add(light);
+        let ambientLight = new THREE.AmbientLight(0xFFFFFF, 4.0);
+        this._scene.add(ambientLight);
     }
 
     initThreeJs() {
@@ -98,7 +104,7 @@ class NodeMmoRpg {
         this.textureLoader = new THREE.TextureLoader();
     }
 
-    requestAF() {
+    /*requestAF() {
 
         requestAnimationFrame(() => {
             const positionMatrix = new THREE.Object3D();
@@ -109,15 +115,42 @@ class NodeMmoRpg {
             this.cubeMesh.instanceMatrix.needsUpdate = true;
 
             this.render();
-
             this.controls.update();
-            this.threejs.render(this.scene, this.camera);
+            this._mixer.update();
+            this.threejs.render(this._scene, this.camera);
             this.requestAF();
+        });
+    }*/
+
+    requestAF() {
+        requestAnimationFrame((t) => {
+            if (this.previousRAF === null) {
+                this.previousRAF = t;
+            }
+
+            this.requestAF();
+
+            this.render();
+            this.threejs.render(this._scene, this.camera);
+            this.step(t - this.previousRAF);
+            this.previousRAF = t;
         });
     }
 
+    step(timeElapsed) {
+        const timeElapsedS = timeElapsed * 0.001;
+        if (this._mixer) {
+            this._mixer.update(timeElapsedS);
+        }
+
+        if (this.controls) {
+            this.controls.update(timeElapsedS);
+        }
+    }
+
+
     initSkybox() {
-        this.scene.background = new THREE.CubeTextureLoader()
+        this._scene.background = new THREE.CubeTextureLoader()
             .setPath('assets/skybox/')
             .load([
                 'px.png',
@@ -143,8 +176,10 @@ class NodeMmoRpg {
 
         // create a flat area
         this.cubeMesh = new THREE.InstancedMesh(singleBlockGeometry, grassMaterialArray, this.dimX * this.dimY);
+        this.cubeMesh.castShadow = false;
+        this.cubeMesh.receiveShadow = true;
         this.cubeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // will be updated every frame
-        this.scene.add(this.cubeMesh);
+        this._scene.add(this.cubeMesh);
 
     }
 
@@ -158,12 +193,57 @@ class NodeMmoRpg {
             for (let j = 0; j < this.dimY; j++) {
                 const posX = (offsetX - i) * 5;
                 const posY = (offsetY - j) * 5;
-                empty.position.set( posX, 0, posY);
+                empty.position.set(posX, -2.5, posY);
                 empty.updateMatrix();
                 this.cubeMesh.setMatrixAt(count++, empty.matrix);
             }
         }
         this.cubeMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    loadModels() {
+        const loader = new GLTFLoader();
+        loader.load(
+            'assets/models/zombie/scene.gltf',
+            (gltf) => {
+                gltf.scene.traverse(c => {
+                    c.castShadow = true;
+                    c.receiveShadow = true;
+                });
+                gltf.scene.scale.set(10, 10, 10);
+                this._scene.add(gltf.scene);
+            },
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.log('An error happened', error);
+            }
+        )
+    }
+
+    loadAnimatedModels() {
+        const loader = new FBXLoader();
+        loader.setPath('./assets/models/');
+        loader.load('dummy/xbot.fbx', (fbx) => {
+                fbx.traverse(c => {
+                    c.castShadow = true;
+                });
+                fbx.scale.setScalar(0.1);
+
+                const anim = new FBXLoader();
+                anim.setPath('./assets/animations/');
+                anim.load('idle.fbx', (anim) => {
+                    this._mixer = new THREE.AnimationMixer(fbx);
+                    const idle = this._mixer.clipAction(anim.animations[0]);
+                    idle.play();
+                });
+                this._scene.add(fbx);
+            },
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            }
+        );
     }
 }
 
