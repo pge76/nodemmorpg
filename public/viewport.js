@@ -3,10 +3,7 @@
 import * as THREE from 'three';
 
 import {OrbitControls} from "orbitcontrols";
-import {GLTFLoader} from "gltfloader";
-import {FBXLoader} from "fbxloader";
-
-import {BasicCharacterControls} from "./controller.js";
+import {BasicCharacterController} from "./basiccharactercontroller.js";
 
 class NodeMmoRpg {
     dimX = 20;
@@ -25,7 +22,6 @@ class NodeMmoRpg {
         this.initLights();
         this.initSkybox();
 
-        //this.loadModels();
         this.loadAnimatedModels();
 
         window.addEventListener("resize", () => this.onResize(), false);
@@ -34,7 +30,7 @@ class NodeMmoRpg {
 
         document.body.appendChild(this.threejs.domElement);
 
-        const controls = new OrbitControls(this.camera, this.threejs.domElement);
+        const controls = new OrbitControls(this._camera, this.threejs.domElement);
         controls.target.set(0, 20, 0);
         controls.update();
 
@@ -47,8 +43,8 @@ class NodeMmoRpg {
 
     onResize() {
         this.threejs.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
+        this._camera.aspect = window.innerWidth / window.innerHeight;
+        this._camera.updateProjectionMatrix();
         this.centerCursor();
     }
 
@@ -64,8 +60,8 @@ class NodeMmoRpg {
         const near = 1.0;
         const far = 1000.0;
 
-        this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-        this.camera.position.set(75, 20, 0);
+        this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+        this._camera.position.set(75, 20, 0);
     }
 
     initScene() {
@@ -107,24 +103,6 @@ class NodeMmoRpg {
         this.textureLoader = new THREE.TextureLoader();
     }
 
-    /*requestAF() {
-
-        requestAnimationFrame(() => {
-            const positionMatrix = new THREE.Object3D();
-            positionMatrix.position.set(0, 0, 0);
-            positionMatrix.updateMatrix();
-
-            this.cubeMesh.setMatrixAt(0, positionMatrix.matrix);
-            this.cubeMesh.instanceMatrix.needsUpdate = true;
-
-            this.render();
-            this.controls.update();
-            this._mixer.update();
-            this.threejs.render(this._scene, this.camera);
-            this.requestAF();
-        });
-    }*/
-
     requestAF() {
         requestAnimationFrame((t) => {
             if (this.previousRAF === null) {
@@ -134,7 +112,7 @@ class NodeMmoRpg {
             this.requestAF();
 
             this.render();
-            this.threejs.render(this._scene, this.camera);
+            this.threejs.render(this._scene, this._camera);
             this.step(t - this.previousRAF);
             this.previousRAF = t;
         });
@@ -142,12 +120,8 @@ class NodeMmoRpg {
 
     step(timeElapsed) {
         const timeElapsedS = timeElapsed * 0.001;
-        if (this._mixer) {
-            this._mixer.update(timeElapsedS);
-        }
-
-        if (this.controls) {
-            this.controls.update(timeElapsedS);
+        if (this._controls) {
+            this._controls.Update(timeElapsedS);
         }
     }
 
@@ -204,66 +178,12 @@ class NodeMmoRpg {
         this.cubeMesh.instanceMatrix.needsUpdate = true;
     }
 
-    loadModels() {
-        const loader = new GLTFLoader();
-        loader.load(
-            'assets/models/zombie/scene.gltf',
-            (gltf) => {
-                gltf.scene.traverse(c => {
-                    c.castShadow = true;
-                    c.receiveShadow = true;
-                });
-                gltf.scene.scale.set(10, 10, 10);
-                this._scene.add(gltf.scene);
-            },
-            (xhr) => {
-                console.log('model ' + (xhr.loaded / xhr.total * 100) + '% loaded');
-            },
-            (error) => {
-                console.log('An error happened', error);
-            }
-        )
-    }
-
     loadAnimatedModels() {
-        const loader = new FBXLoader();
-        loader.setPath('./assets/models/');
-        loader.load('ybot.fbx', (fbx) => {
-                fbx.traverse(c => {
-                    c.castShadow = true;
-                });
-                fbx.scale.setScalar(0.1);
-
-                const params = {
-                    target: fbx,
-                    camera: this.camera,
-                }
-
-                this.controls = new BasicCharacterControls(params);
-
-
-                const anim = new FBXLoader();
-                anim.setPath('./assets/animations/');
-                anim.load('walking.fbx', (anim) => {
-                        this._mixer = new THREE.AnimationMixer(fbx);
-                        const walk = this._mixer.clipAction(anim.animations[0]);
-                        walk.play();
-                    },
-                    (xhr) => {
-                        console.log('animation: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
-                    },
-                    (error) => {
-                        console.log("error loading animation: ", error)
-                    });
-                this._scene.add(fbx);
-            },
-            (xhr) => {
-                console.log('animated model: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
-            },
-            (error) => {
-                console.log("error loading model: ", error)
-            }
-        );
+        const params = {
+            camera: this._camera,
+            scene: this._scene
+        }
+        this._controls = new BasicCharacterController(params);
     }
 }
 

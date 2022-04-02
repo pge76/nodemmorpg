@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-class BasicCharacterControls {
+class BasicCharacterController {
     constructor(params) {
         this.init(params);
     }
@@ -121,4 +121,4 @@ class BasicCharacterControls {
     }
 }
 
-export { BasicCharacterControls }
+export { BasicCharacterController }
