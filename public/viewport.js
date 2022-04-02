@@ -6,6 +6,8 @@ import {OrbitControls} from "orbitcontrols";
 import {GLTFLoader} from "gltfloader";
 import {FBXLoader} from "fbxloader";
 
+import {BasicCharacterControls} from "./controller.js";
+
 class NodeMmoRpg {
     dimX = 20;
     dimY = 20;
@@ -32,8 +34,9 @@ class NodeMmoRpg {
 
         document.body.appendChild(this.threejs.domElement);
 
-        this.controls = new OrbitControls(this.camera, this.threejs.domElement);
-        this.controls.update();
+        const controls = new OrbitControls(this.camera, this.threejs.domElement);
+        controls.target.set(0, 20, 0);
+        controls.update();
 
         this.centerCursor();
 
@@ -71,7 +74,7 @@ class NodeMmoRpg {
     }
 
     initLights() {
-        let directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.0);
+        let directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.3);
         directionalLight.position.set(20, 100, 10);
         directionalLight.target.position.set(0, 0, 0);
         directionalLight.castShadow = true;
@@ -88,7 +91,7 @@ class NodeMmoRpg {
         directionalLight.shadow.camera.bottom = -100;
         this._scene.add(directionalLight);
 
-        let ambientLight = new THREE.AmbientLight(0xFFFFFF, 4.0);
+        let ambientLight = new THREE.AmbientLight(0xFFFFFF, 2.0);
         this._scene.add(ambientLight);
     }
 
@@ -214,7 +217,7 @@ class NodeMmoRpg {
                 this._scene.add(gltf.scene);
             },
             (xhr) => {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                console.log('model ' + (xhr.loaded / xhr.total * 100) + '% loaded');
             },
             (error) => {
                 console.log('An error happened', error);
@@ -225,23 +228,40 @@ class NodeMmoRpg {
     loadAnimatedModels() {
         const loader = new FBXLoader();
         loader.setPath('./assets/models/');
-        loader.load('dummy/xbot.fbx', (fbx) => {
+        loader.load('ybot.fbx', (fbx) => {
                 fbx.traverse(c => {
                     c.castShadow = true;
                 });
                 fbx.scale.setScalar(0.1);
 
+                const params = {
+                    target: fbx,
+                    camera: this.camera,
+                }
+
+                this.controls = new BasicCharacterControls(params);
+
+
                 const anim = new FBXLoader();
                 anim.setPath('./assets/animations/');
-                anim.load('idle.fbx', (anim) => {
-                    this._mixer = new THREE.AnimationMixer(fbx);
-                    const idle = this._mixer.clipAction(anim.animations[0]);
-                    idle.play();
-                });
+                anim.load('walking.fbx', (anim) => {
+                        this._mixer = new THREE.AnimationMixer(fbx);
+                        const walk = this._mixer.clipAction(anim.animations[0]);
+                        walk.play();
+                    },
+                    (xhr) => {
+                        console.log('animation: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
+                    },
+                    (error) => {
+                        console.log("error loading animation: ", error)
+                    });
                 this._scene.add(fbx);
             },
             (xhr) => {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                console.log('animated model: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.log("error loading model: ", error)
             }
         );
     }
